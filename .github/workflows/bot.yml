@@ -24,4 +24,4 @@ jobs:
       - name: Run Puppeteer script
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node fetchStream.js
+        run: node bot.js
