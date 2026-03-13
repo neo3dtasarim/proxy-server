@@ -2,8 +2,8 @@ name: M3U8 Yakalayici
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Her 30 dakikada bir otomatik çalışır
-  workflow_dispatch: # Manuel buton ekler
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   calistir:
@@ -13,8 +13,10 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-      - run: npm install
+      - name: Skip Chromium Download
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: npm ci
       - name: Botu Atesle
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
