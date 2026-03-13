@@ -1,5 +1,7 @@
-- uses: actions/setup-node@v3
-  with:
-    node-version: '18'
-    cache: 'npm'  # 👈 Bunu ekle
-- run: npm install
+{
+  "name": "m3u8-bot",
+  "dependencies": {
+    "puppeteer": "^24.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}
