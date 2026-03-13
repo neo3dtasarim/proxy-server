@@ -1,23 +1,27 @@
-name: M3U8 Yakalayici
+name: Update ATV Stream URL
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+    - cron: '*/30 * * * *'  # Her 30 dakikada bir
+  workflow_dispatch:  # Manuel tetikleme için
 
 jobs:
-  calistir:
+  fetch-and-update:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
-      - name: Skip Chromium Download
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: npm ci
-      - name: Botu Atesle
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Puppeteer script
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node bot.js
+        run: node fetchStream.js
