@@ -1,71 +1,62 @@
 const puppeteer = require('puppeteer');
 const admin = require('firebase-admin');
 
-// 1. Firebase Anahtarını Al
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
+// Firebase Admin SDK'yı başlat (serviceAccount bilgilerinizi ekleyin)
+const serviceAccount = require('./serviceAccountKey.json'); // Firebase'den indireceğiniz anahtar
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://deneme-48ef5-default-rtdb.firebaseio.com"
+  databaseURL: 'https://<proje-adi>.firebaseio.com'
 });
-
 const db = admin.database();
 
-(async () => {
-    console.log("1. Tarayıcı hazırlanıyor...");
-    const browser = await puppeteer.launch({ 
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security'] 
-    });
-    const page = await browser.newPage();
-    
-    // Gerçek bir kullanıcı gibi görünüyoruz
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+async function getM3u8Url() {
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox'], // GitHub Actions için gerekli
+    headless: true
+  });
+  const page = await browser.newPage();
 
-    let linkBulundu = false;
-
-    // Ağı (Network) dinliyoruz
-    page.on('request', async (request) => {
-        const url = request.url();
-        // m3u8 veya daioncdn (Turkuvaz Medya sunucusu) gördüğümüz an yakalıyoruz
-        if ((url.includes('.m3u8') || url.includes('trkvz.daioncdn.net')) && !linkBulundu) {
-            linkBulundu = true;
-            console.log('\n--- 2. BULDUM! ALTIN LİNK ---');
-            console.log(url);
-
-            try {
-                await db.ref('canli_yayin').set({
-                    m3u8_url: url,
-                    guncelleme_tarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
-                });
-                console.log('3. FİREBASE BAŞARIYLA GÜNCELLENDİ!\n');
-            } catch (err) {
-                console.error('Firebase yazma hatası:', err);
-            }
-
-            await browser.close();
-            process.exit(0);
-        }
-    });
-
-    console.log("4. Hedef siteye bağlanılıyor: ATV Resmi Sitesi...");
-    try {
-        // ATV'nin resmi adresine gidiyoruz
-        await page.goto('https://www.atv.com.tr/canli-yayin', { waitUntil: 'domcontentloaded', timeout: 60000 });
-        console.log("5. Sayfa açıldı, arka planda video oynatıcının yüklenmesi bekleniyor...");
-        
-        // Site açıldıktan sonra maksimum 45 saniye bekle
-        setTimeout(async () => {
-            if (!linkBulundu) {
-                console.log('6. Süre doldu, link sayfaya düşmedi.');
-                await browser.close();
-                process.exit(1);
-            }
-        }, 45000);
-
-    } catch (e) {
-        console.error('7. Sayfaya girerken hata oluştu:', e.message);
-        await browser.close();
-        process.exit(1);
+  // Ağ isteklerini dinle
+  let m3u8Url = null;
+  page.on('request', request => {
+    const url = request.url();
+    if (url.includes('.m3u8') && !url.includes('?')) { // Tokenlı link genelde ? ile gelir, ama yine de yakalayalım
+      m3u8Url = url;
+      console.log('Yakalanan m3u8:', url);
     }
+  });
+
+  // Sayfayı aç ve JS'lerin çalışması için bekle
+  await page.goto('https://www.atv.com.tr/canli-yayin', { waitUntil: 'networkidle2', timeout: 60000 });
+
+  // Biraz daha bekle (bazı istekler geç gelebilir)
+  await page.waitForTimeout(10000);
+
+  await browser.close();
+
+  if (!m3u8Url) {
+    throw new Error('m3u8 linki bulunamadı.');
+  }
+
+  return m3u8Url;
+}
+
+async function updateFirebase(url) {
+  const ref = db.ref('live/atv');
+  await ref.set({
+    url: url,
+    lastUpdated: Date.now()
+  });
+  console.log('Firebase güncellendi.');
+}
+
+(async () => {
+  try {
+    const url = await getM3u8Url();
+    await updateFirebase(url);
+    process.exit(0);
+  } catch (err) {
+    console.error('Hata:', err);
+    process.exit(1);
+  }
 })();
