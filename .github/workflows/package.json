@@ -1,0 +1,7 @@
+{
+  "name": "m3u8-bot",
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "firebase-admin": "^11.0.0"
+  }
+}
